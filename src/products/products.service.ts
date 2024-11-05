@@ -3,6 +3,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { convertToSlug } from 'src/common/helpers/convert-to-slug';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService {
@@ -36,13 +37,68 @@ export class ProductsService {
     };
   }
 
-  async findAll() {
+  async findAll(paginationDto: PaginationDto) {
 
-    const products = await this.prisma.products.findMany();
+    const { limit, page, search } = paginationDto;
+    
+    if( !search ){
+      const totalProducts = await this.prisma.products.count();
+      
+      const lastPage = Math.ceil(totalProducts / limit);
+  
+      const products = await this.prisma.products.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: {
+          createdAt: "desc"
+        }
+      });
+  
+      return {
+        products,
+        meta: {
+          total: totalProducts,
+          page,
+          lastPage,
+        }
+      };
+    }
+
+    const totalProducts = await this.prisma.products.count({
+      where: {
+        OR: [
+          { id: { contains: search } },
+          { name: { contains: search } },
+        ]
+      }
+    });
+      
+    const lastPage = Math.ceil(totalProducts / limit);
+
+    const products = await this.prisma.products.findMany({
+      where: {
+        OR: [
+          { id: { contains: search } },
+          { name: { contains: search } },
+        ]
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: {
+        createdAt: "desc"
+      }
+    })
+
 
     return {
-      products
-    };
+      products,
+      meta: {
+        total: totalProducts,
+        page,
+        lastPage,
+      }
+    }
+
   }
 
   async findOne(term: string) {
