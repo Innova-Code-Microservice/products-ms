@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { convertToSlug } from 'src/common/helpers/convert-to-slug';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class ProductsService {
@@ -19,7 +20,10 @@ export class ProductsService {
     });
 
     if (productExists) {
-      throw new BadRequestException("Ya se registro un producto con este nombre")
+      throw new RpcException({
+        message: "Ya se registro un producto con este nombre",
+        statusCode: HttpStatus.BAD_REQUEST,
+      })
     }
 
     const slug = convertToSlug(createProductDto.name);
@@ -113,7 +117,10 @@ export class ProductsService {
     })
 
     if (!product) {
-      throw new NotFoundException("No se encontro el producto")
+      throw new RpcException({
+        message: "No se encontro el producto",
+        statusCode: HttpStatus.NOT_FOUND,
+      })
     }
 
 
@@ -131,7 +138,10 @@ export class ProductsService {
     })
 
     if (!productExists) {
-      throw new NotFoundException("No se encontro el producto")
+      throw new RpcException({
+        message: "No se encontro el producto",
+        statusCode: HttpStatus.NOT_FOUND,
+      })
     }
 
     if (updateProductDto.name) {
@@ -169,7 +179,10 @@ export class ProductsService {
     })
 
     if (!productExists) {
-      throw new NotFoundException("No se encontro el producto")
+      throw new RpcException({
+        message: "No se encontro el producto",
+        statusCode: HttpStatus.NOT_FOUND,
+      })
     }
 
     await this.prisma.products.delete({ 
