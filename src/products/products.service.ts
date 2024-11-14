@@ -5,6 +5,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { convertToSlug } from 'src/common/helpers/convert-to-slug';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { RpcException } from '@nestjs/microservices';
+import { firstValueFrom } from 'rxjs';
+import { response } from 'express';
 
 @Injectable()
 export class ProductsService {
@@ -44,12 +46,12 @@ export class ProductsService {
   async findAll(paginationDto: PaginationDto) {
 
     const { limit, page, search } = paginationDto;
-    
-    if( !search ){
+
+    if (!search) {
       const totalProducts = await this.prisma.products.count();
-      
+
       const lastPage = Math.ceil(totalProducts / limit);
-  
+
       const products = await this.prisma.products.findMany({
         skip: (page - 1) * limit,
         take: limit,
@@ -57,7 +59,7 @@ export class ProductsService {
           createdAt: "desc"
         }
       });
-  
+
       return {
         products,
         meta: {
@@ -76,7 +78,7 @@ export class ProductsService {
         ]
       }
     });
-      
+
     const lastPage = Math.ceil(totalProducts / limit);
 
     const products = await this.prisma.products.findMany({
@@ -185,7 +187,7 @@ export class ProductsService {
       })
     }
 
-    await this.prisma.products.delete({ 
+    await this.prisma.products.delete({
       where: { id }
     })
 
@@ -195,4 +197,61 @@ export class ProductsService {
     }
 
   }
+
+  async validateProductsIds(ids: string[]) {
+
+    ids = Array.from(new Set(ids));
+
+    const products = await this.prisma.products.findMany({
+      where: {
+        id: {
+          in: ids
+        }
+      }
+    })
+
+    if (products.length !== ids.length) {
+      throw new RpcException({
+        message: "No se encontro algun producto",
+        status: HttpStatus.BAD_REQUEST,
+      })
+    }
+
+    return products;
+
+  }
+
+  async updateProductStock(productIdsQuantities: {id: string; quantity: number;}[]) {
+
+    const productIds = productIdsQuantities.map(product => product.id)
+    
+    const products = await this.prisma.products.findMany({
+      where: {
+        id: {
+          in: productIds
+        }
+      }
+    })
+
+
+    products.map(( product, index ) => {
+
+      if( product.stock < productIdsQuantities[index].quantity ){
+        throw new RpcException({
+          status: HttpStatus.BAD_REQUEST,
+          message: "Stock insuficiente"
+        })
+      }
+    })
+
+
+    products.map(( product, index ) => {
+      const newStock = product.stock - productIdsQuantities[index].quantity
+      this.update(product.id, { ...product, stock: newStock })
+    })
+   
+    return true;
+  }
+
+
 }
