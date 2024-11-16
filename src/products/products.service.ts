@@ -213,7 +213,7 @@ export class ProductsService {
     if (products.length !== ids.length) {
       throw new RpcException({
         message: "No se encontro algun producto",
-        status: HttpStatus.BAD_REQUEST,
+        statusCode: HttpStatus.BAD_REQUEST,
       })
     }
 
